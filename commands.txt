@@ -1,0 +1,7 @@
+echo 'export LICHESS_TOKEN="_____"' >> ~/.bashrc
+source ~/.bashrc
+
+python3 -m pip install -r requirements.txt --break-system-packages
+export STOCKFISH_PATH="/usr/games/stockfish"
+
+nohup python3 app.py &> app.log &
