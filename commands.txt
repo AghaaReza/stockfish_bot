@@ -5,3 +5,49 @@ python3 -m pip install -r requirements.txt --break-system-packages
 export STOCKFISH_PATH="/usr/games/stockfish"
 
 nohup python3 app.py &> app.log &
+pip install flask --break-system-package
+
+
+python3 -m venv venv
+source venv/bin/activate
+
+sudo vi /etc/systemd/system/bot-panel.service
+-----------------------------------------------------
+[Unit]
+Description=Lichess Bot Control Panel (Flask via Gunicorn)
+After=network.target
+
+[Service]
+User=chessbot          # <-- change to your user
+Group=www-data         # or same as Nginx group
+WorkingDirectory=/home/reza/projects/stockfish_bot
+Environment="LICHESS_TOKEN=------------"
+Environment="STOCKFISH_PATH=/usr/games/stockfish"
+Environment="PATH=/home/reza/projects/stockfish_bot/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+
+ExecStart=/home/reza/projects/stockfish_bot/venv/bin/gunicorn -w 2 -b 127.0.0.1:8000 control_panel:app
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+---------------------------------------
+sudo systemctl daemon-reload
+sudo systemctl enable bot-panel
+sudo systemctl start bot-panel
+sudo systemctl status bot-panel
+
+add this block to /etc/nginx/sites-available/mazehkhor.com after location
+
+location /bot/ {
+    proxy_pass http://127.0.0.1:8000/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+
+sudo nginx -t
+sudo systemctl reload nginx

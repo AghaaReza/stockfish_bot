@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Lichess Bot Control Panel</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+        }
+        .status {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .running {
+            background: #d4edda;
+            color: #155724;
+        }
+        .stopped {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        form {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            margin-right: 10px;
+        }
+        input[type="number"] {
+            width: 60px;
+        }
+        button {
+            padding: 6px 12px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lichess Bot Control Panel</h1>
+
+    <div class="status {{ 'running' if running else 'stopped' }}">
+        {% if running %}
+            <strong>Status:</strong> Bot is RUNNING<br>
+        {% else %}
+            <strong>Status:</strong> Bot is STOPPED<br>
+        {% endif %}
+        <strong>Current Stockfish level:</strong> {{ current_level }}
+    </div>
+
+    <!-- Start / Stop with level selection -->
+    <h2>Start / Stop</h2>
+    <form method="post" action="{{ url_for('start_bot') }}">
+        <label for="level">Level (0-20):</label>
+        <input type="number" id="level" name="level"
+               min="0" max="20" value="{{ current_level }}">
+        <button type="submit">Start Bot</button>
+    </form>
+
+    <form method="post" action="{{ url_for('stop_bot') }}">
+        <button type="submit">Stop Bot</button>
+    </form>
+
+    <!-- Change level while running (restarts bot) -->
+    <h2>Change Level</h2>
+    <form method="post" action="{{ url_for('set_level') }}">
+        <label for="new_level">New level (0–20):</label>
+        <input type="number" id="new_level" name="level"
+               min="0" max="20" value="{{ current_level }}">
+        <button type="submit">Update Level</button>
+    </form>
+</body>
+</html>

@@ -13,7 +13,9 @@ Run:
   python bot.py
 """
 
+#!/usr/bin/env python3
 import os
+import sys
 import traceback
 from typing import Optional
 
@@ -21,12 +23,15 @@ import berserk
 import chess
 import chess.engine
 
+import time
+import requests
+
 
 # ------------ CONFIG ------------
 ACCEPT_RATED = False             # Set True to allow rated games
 ACCEPT_VARIANTS = {"standard"}   # e.g., {"standard", "chess960"}
-MAX_GAME_BASETIME_SEC = 900      # Accept base time <= 5 minutes
-MAX_GAME_INCREMENT_SEC = 10       # Accept increment <= 5 seconds
+MAX_GAME_BASETIME_SEC = 900      # Accept base time <= 15 minutes
+MAX_GAME_INCREMENT_SEC = 10      # Accept increment <= 10 seconds
 
 DEFAULT_THINK_TIME_SEC = 0.2     # Used when no/unknown clock times
 MOVE_OVERHEAD_SEC = 0.05         # Safety buffer
@@ -36,8 +41,16 @@ USE_PONDER = False               # Keep it simple for now
 # Stockfish tuning
 STOCKFISH_THREADS = os.cpu_count() or 4
 STOCKFISH_HASH_MB = 1024
-STOCKFISH_SKILL_LEVEL = 20       # 0..20
+
+# Get level from command line if provided, else default 20
+try:
+    STOCKFISH_SKILL_LEVEL = int(sys.argv[1])
+except (IndexError, ValueError):
+    STOCKFISH_SKILL_LEVEL = 20  # 0..20
 # --------------------------------
+
+# ... rest of your code stays EXACTLY the same ...
+
 
 
 def env(name: str, required: bool = True) -> Optional[str]:
@@ -113,6 +126,7 @@ class LichessStockfishBot:
             return False
 
     def handle_event_stream(self):
+        """Main loop reading incoming events from Lichess."""
         print("Starting event stream...")
         for event in self.client.bots.stream_incoming_events():
             t = event.get("type")
@@ -122,7 +136,10 @@ class LichessStockfishBot:
                 ch_id = ch.get("id")
                 try:
                     if self.should_accept(ch):
-                        print(f"Accepting challenge {ch_id}: {ch.get('challenger', {}).get('name')} / {ch.get('timeControl')}")
+                        print(
+                            f"Accepting challenge {ch_id}: "
+                            f"{ch.get('challenger', {}).get('name')} / {ch.get('timeControl')}"
+                        )
                         self.client.bots.accept_challenge(ch_id)
                     else:
                         print(f"Declining challenge {ch_id}")
@@ -141,6 +158,30 @@ class LichessStockfishBot:
                     traceback.print_exc()
 
             # "gameFinish" events are informational; nothing to do.
+
+    def run(self):
+        """Run the bot forever, reconnecting on stream errors."""
+        try:
+            while True:
+                try:
+                    self.handle_event_stream()
+                    # If the stream ends cleanly, just reconnect after a short pause
+                    print("Event stream ended, reconnecting in 5 seconds...")
+                    time.sleep(5)
+                except (requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ConnectionError) as e:
+                    print(f"Connection to Lichess lost: {e}. Reconnecting in 5 seconds...")
+                    traceback.print_exc()
+                    time.sleep(5)
+                except Exception as e:
+                    print(f"Unexpected error in event loop: {e}. Restarting in 10 seconds...")
+                    traceback.print_exc()
+                    time.sleep(10)
+        finally:
+            try:
+                self.engine.quit()
+            except Exception:
+                pass
 
     # -------- Game loop --------
     def play_game(self, game_id: str):
@@ -260,16 +301,6 @@ class LichessStockfishBot:
             base *= 0.7
 
         return max(0.02, base - MOVE_OVERHEAD_SEC)
-
-    def run(self):
-        try:
-            self.handle_event_stream()
-        finally:
-            try:
-                self.engine.quit()
-            except Exception:
-                pass
-
 
 if __name__ == "__main__":
     bot = LichessStockfishBot()
