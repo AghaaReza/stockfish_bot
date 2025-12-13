@@ -25,7 +25,10 @@ import chess.engine
 
 import time
 import requests
+import json
 
+# Path to shared state file for the web panel
+STATE_FILE = os.path.join(os.path.dirname(__file__), "bot_state.json")
 
 # ------------ CONFIG ------------
 ACCEPT_RATED = False             # Set True to allow rated games
@@ -161,6 +164,8 @@ class LichessStockfishBot:
 
     def run(self):
         """Run the bot forever, reconnecting on stream errors."""
+        # Clear stale state on startup
+        self._clear_state()
         try:
             while True:
                 try:
@@ -187,6 +192,10 @@ class LichessStockfishBot:
     def play_game(self, game_id: str):
         board = chess.Board()
         my_color = None  # True=white, False=black
+        opponent_name = None
+
+        # Mark that we are starting a game
+        self._set_current_game_state(game_id, status="starting")
 
         stream = self.client.bots.stream_game_state(game_id)
 
@@ -202,11 +211,42 @@ class LichessStockfishBot:
                 elif black_id == self.my_id:
                     my_color = False
 
+                # Try to detect opponent name
+                if my_color is True:
+                    black = msg.get("black", {})
+                    opponent_name = (
+                        black.get("name")
+                        or black.get("user", {}).get("name")
+                        or black.get("user", {}).get("username")
+                    )
+                elif my_color is False:
+                    white = msg.get("white", {})
+                    opponent_name = (
+                        white.get("name")
+                        or white.get("user", {}).get("name")
+                        or white.get("user", {}).get("username")
+                    )
+
                 moves_str = msg.get("state", {}).get("moves", "")
                 self._apply_moves(board, moves_str)
 
-                last = moves_str.split()[-1] if moves_str else "(start)"
-                print(f"[{game_id}] gameFull | last: {last} | turn: {'white' if board.turn else 'black'}")
+                last = moves_str.split()[-1] if moves_str else None
+                print(f"[{game_id}] gameFull | last: {last or '(start)'} | turn: {'white' if board.turn else 'black'}")
+
+                # Update shared state
+                color_str = None
+                if my_color is True:
+                    color_str = "white"
+                elif my_color is False:
+                    color_str = "black"
+
+                self._set_current_game_state(
+                    game_id=game_id,
+                    status="playing",
+                    color=color_str,
+                    last_move=last,
+                    opponent=opponent_name,
+                )
 
                 # If it's our turn immediately (we are white), move now
                 if my_color is not None and board.turn == my_color:
@@ -218,8 +258,23 @@ class LichessStockfishBot:
                 board = chess.Board()  # rebuild from scratch for safety
                 self._apply_moves(board, moves_str)
 
-                last = moves_str.split()[-1] if moves_str else "(start)"
-                print(f"[{game_id}] gameState | last: {last} | turn: {'white' if board.turn else 'black'}")
+                last = moves_str.split()[-1] if moves_str else None
+                print(f"[{game_id}] gameState | last: {last or '(start)'} | turn: {'white' if board.turn else 'black'}")
+
+                # Update shared state
+                color_str = None
+                if my_color is True:
+                    color_str = "white"
+                elif my_color is False:
+                    color_str = "black"
+
+                self._set_current_game_state(
+                    game_id=game_id,
+                    status="playing",
+                    color=color_str,
+                    last_move=last,
+                    opponent=opponent_name,
+                )
 
                 if my_color is not None and board.turn == my_color:
                     self._maybe_make_move(game_id, board, msg, my_color)
@@ -229,6 +284,10 @@ class LichessStockfishBot:
                 pass
 
         print(f"Game stream for {game_id} ended.")
+        # Mark finished / idle after the game
+        self._set_current_game_state(game_id, status="finished")
+        # Optionally go fully idle:
+        self._clear_state()
 
     def _apply_moves(self, board: chess.Board, moves_str: str):
         if not moves_str:
@@ -238,6 +297,33 @@ class LichessStockfishBot:
                 board.push_uci(uci)
             except Exception:
                 traceback.print_exc()
+
+    # -------- State file helpers (for control panel) --------
+    def _write_state(self, data: dict):
+        """Write bot state to JSON file for the control panel."""
+        try:
+            data["updated_at"] = time.time()
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+        except Exception:
+            traceback.print_exc()
+
+    def _set_current_game_state(self, game_id: Optional[str], status: str,
+                                color: Optional[str] = None,
+                                last_move: Optional[str] = None,
+                                opponent: Optional[str] = None):
+        data = {
+            "status": status,          # "idle", "starting", "playing", "finished"
+            "game_id": game_id,
+            "color": color,            # "white" or "black"
+            "last_move": last_move,
+            "opponent": opponent,
+        }
+        self._write_state(data)
+
+    def _clear_state(self):
+        """Reset state to idle (e.g. when no game is running)."""
+        self._set_current_game_state(None, status="idle")
 
     # -------- Time & phase helpers --------
     def _to_ms(self, v) -> int:

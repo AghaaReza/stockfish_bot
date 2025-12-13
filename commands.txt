@@ -51,3 +51,5 @@ location /bot/ {
 
 sudo nginx -t
 sudo systemctl reload nginx
+-------------------------------------------
+export API_KEY="YOUR_API_KEY_HERE"

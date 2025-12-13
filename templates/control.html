@@ -6,7 +6,7 @@
     <style>
         body {
             font-family: sans-serif;
-            max-width: 600px;
+            max-width: 800px;
             margin: 40px auto;
         }
         .status {
@@ -36,6 +36,31 @@
             padding: 6px 12px;
             margin-right: 10px;
         }
+        section {
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+        pre.logs {
+            background: #f1f1f1;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 4px 6px;
+            font-size: 13px;
+        }
+        th {
+            background: #f0f0f0;
+        }
     </style>
 </head>
 <body>
@@ -50,26 +75,113 @@
         <strong>Current Stockfish level:</strong> {{ current_level }}
     </div>
 
-    <!-- Start / Stop with level selection -->
-    <h2>Start / Stop</h2>
-    <form method="post" action="{{ url_for('start_bot') }}">
-        <label for="level">Level (0-20):</label>
-        <input type="number" id="level" name="level"
-               min="0" max="20" value="{{ current_level }}">
-        <button type="submit">Start Bot</button>
-    </form>
+    <section>
+        <h2>Start / Stop</h2>
+        <form method="post" action="{{ url_for('start_bot') }}">
+            <label for="level">Level (0-20):</label>
+            <input type="number" id="level" name="level"
+                   min="0" max="20" value="{{ current_level }}">
+            <button type="submit">Start Bot</button>
+        </form>
 
-    <form method="post" action="{{ url_for('stop_bot') }}">
-        <button type="submit">Stop Bot</button>
-    </form>
+        <form method="post" action="{{ url_for('stop_bot') }}">
+            <button type="submit">Stop Bot</button>
+        </form>
+    </section>
 
-    <!-- Change level while running (restarts bot) -->
-    <h2>Change Level</h2>
-    <form method="post" action="{{ url_for('set_level') }}">
-        <label for="new_level">New level (0–20):</label>
-        <input type="number" id="new_level" name="level"
-               min="0" max="20" value="{{ current_level }}">
-        <button type="submit">Update Level</button>
-    </form>
+    <section>
+        <h2>Change Level (restarts bot if running)</h2>
+        <form method="post" action="{{ url_for('set_level') }}">
+            <label for="new_level">New level (0–20):</label>
+            <input type="number" id="new_level" name="level"
+                   min="0" max="20" value="{{ current_level }}">
+            <button type="submit">Update Level</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Restart Bot</h2>
+        <form method="post" action="{{ url_for('restart_bot') }}">
+            <button type="submit">Restart Bot</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Current Game</h2>
+        {% if game and game.status == 'playing' %}
+            <p>
+                <strong>In game:</strong> Yes<br>
+                <strong>Game ID:</strong> {{ game.game_id }}<br>
+                <strong>Color:</strong> {{ game.color|capitalize if game.color else 'Unknown' }}<br>
+                <strong>Opponent:</strong> {{ game.opponent or 'Unknown' }}<br>
+                <strong>Last move:</strong> {{ game.last_move or 'N/A' }}
+            </p>
+        {% else %}
+            <p>No active game detected.</p>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>Bot Statistics</h2>
+        {% if stats %}
+            <p>
+                <strong>Account:</strong> {{ stats.username }}<br>
+                <strong>Total games:</strong> {{ stats.total_games }}
+            </p>
+
+            <h3>Ratings</h3>
+            <ul>
+                <li>Bullet: {{ stats.ratings.bullet or 'N/A' }}</li>
+                <li>Blitz: {{ stats.ratings.blitz or 'N/A' }}</li>
+                <li>Rapid: {{ stats.ratings.rapid or 'N/A' }}</li>
+            </ul>
+
+            <h3>Recent Performance (last {{ stats.recent.games_analyzed }} games)</h3>
+            <ul>
+                <li>Wins: {{ stats.recent.wins }}</li>
+                <li>Losses: {{ stats.recent.losses }}</li>
+                <li>Draws: {{ stats.recent.draws }}</li>
+            </ul>
+
+            {% if stats.recent.last_games %}
+                <h3>Last Games</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Game ID</th>
+                            <th>Perf</th>
+                            <th>Result</th>
+                            <th>Opponent</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for g in stats.recent.last_games %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ g.id }}</td>
+                                <td>{{ g.perf or 'N/A' }}</td>
+                                <td>{{ g.result }}</td>
+                                <td>{{ g.opponent or 'Unknown' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        {% else %}
+            <p>Statistics not available (check LICHESS_TOKEN).</p>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>Recent Logs (last 200 lines)</h2>
+        {% if logs %}
+            <pre class="logs">
+{% for line in logs -%}{{ line }}{% endfor %}
+            </pre>
+        {% else %}
+            <p>No logs available.</p>
+        {% endif %}
+    </section>
 </body>
 </html>

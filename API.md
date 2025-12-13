@@ -1,43 +1,97 @@
-Here is the **updated API documentation with `curl` examples** added for every endpoint.
+* All endpoints
+* Linux (real curl) examples
+* PowerShell-compatible examples
+* Authentication notes
+* The new endpoints you added (logs, restart, current game, stats)
+
+Here is the full updated **API.md** — ready to paste into your repository.
 
 ---
 
-# **Lichess Stockfish Bot – REST API Documentation (with curl examples)**
+# **Lichess Stockfish Bot – REST API Documentation**
 
-Base URL (public through Nginx):
+Base URL (via Nginx):
 
 ```
 https://mazehkhor.com/bot/api/
 ```
 
 All endpoints return JSON.
-All `POST` requests expect JSON unless stated otherwise.
+Authentication is required using an API key.
 
 ---
 
-# **Overview**
+# **Authentication**
 
-The API enables:
+Every API request must include the header:
 
-* Checking bot status
-* Starting or stopping the bot
-* Getting or setting the Stockfish skill level
-
-Skill level is an integer between **0 and 20**.
-
----
-
-# **1. GET `/api/bot/status`**
-
-Returns the current state of the bot.
-
-### **curl Example**
-
-```bash
-curl https://mazehkhor.com/bot/api/bot/status
+```
+X-API-Key: <your_key_here>
 ```
 
-### **Response**
+If missing or invalid, the API returns:
+
+```json
+{
+  "ok": false,
+  "error": "Unauthorized"
+}
+```
+
+---
+
+# **Two Ways to Call the API**
+
+## ✅ Linux / macOS (real curl)
+
+Use:
+
+```bash
+curl -H "X-API-Key: YOUR_KEY"
+```
+
+## ✅ Windows PowerShell
+
+PowerShell does **not** support curl-style `-H` syntax.
+Use:
+
+```powershell
+curl -Headers @{ "X-API-Key" = "YOUR_KEY" }
+```
+
+If you want Linux-style curl inside PowerShell, use:
+
+```powershell
+curl.exe -H "X-API-Key: YOUR_KEY"
+```
+
+---
+
+# ----------------------------------------------
+
+# **1. BOT STATUS**
+
+# ----------------------------------------------
+
+## **GET `/bot/api/bot/status`**
+
+Returns bot process status.
+
+### 🟦 **Linux / macOS**
+
+```bash
+curl -X GET "https://mazehkhor.com/bot/api/bot/status" \
+     -H "X-API-Key: YOUR_KEY"
+```
+
+### 🟥 **PowerShell**
+
+```powershell
+curl "https://mazehkhor.com/bot/api/bot/status" `
+     -Headers @{ "X-API-Key" = "YOUR_KEY" }
+```
+
+### Example response
 
 ```json
 {
@@ -50,189 +104,255 @@ curl https://mazehkhor.com/bot/api/bot/status
 
 ---
 
-# **2. POST `/api/bot/start`**
+# ----------------------------------------------
 
-Starts the bot.
-Optional JSON allows setting the skill level before launching.
+# **2. START BOT**
 
----
+# ----------------------------------------------
 
-## **Start bot (no parameters)**
+## **POST `/bot/api/bot/start`**
 
-### **curl Example**
+### 🟦 Linux / macOS
 
 ```bash
-curl -X POST https://mazehkhor.com/bot/api/bot/start
+curl -X POST "https://mazehkhor.com/bot/api/bot/start" \
+     -H "X-API-Key: YOUR_KEY"
 ```
 
----
-
-## **Start bot with skill level**
-
-### **curl Example**
+### Start with level
 
 ```bash
-curl -X POST https://mazehkhor.com/bot/api/bot/start \
+curl -X POST "https://mazehkhor.com/bot/api/bot/start" \
+     -H "X-API-Key: YOUR_KEY" \
      -H "Content-Type: application/json" \
-     -d '{"level": 15}'
+     -d '{"level": 12}'
 ```
 
-### **Response**
+### 🟥 PowerShell
+
+```powershell
+curl "https://mazehkhor.com/bot/api/bot/start" `
+     -Method POST `
+     -Headers @{ "X-API-Key" = "YOUR_KEY" }
+```
+
+### Example response
 
 ```json
 {
   "ok": true,
   "started": true,
   "running": true,
-  "level": 15,
+  "level": 12,
   "pid": 67890
 }
 ```
 
 ---
 
-# **3. POST `/api/bot/stop`**
+# ----------------------------------------------
 
-Stops the running bot.
+# **3. STOP BOT**
 
-### **curl Example**
+# ----------------------------------------------
+
+## **POST `/bot/api/bot/stop`**
+
+### 🟦 Linux / macOS
 
 ```bash
-curl -X POST https://mazehkhor.com/bot/api/bot/stop
+curl -X POST "https://mazehkhor.com/bot/api/bot/stop" \
+     -H "X-API-Key: YOUR_KEY"
 ```
 
-### **Response**
+### 🟥 PowerShell
 
-```json
-{
-  "ok": true,
-  "stopped": true,
-  "running": false,
-  "level": 20,
-  "pid": null
-}
+```powershell
+curl "https://mazehkhor.com/bot/api/bot/stop" `
+     -Method POST `
+     -Headers @{ "X-API-Key" = "YOUR_KEY" }
 ```
 
 ---
 
-# **4. GET `/api/bot/level`**
+# ----------------------------------------------
 
-Returns current skill level.
+# **4. SET / GET LEVEL**
 
-### **curl Example**
+# ----------------------------------------------
+
+## **GET `/bot/api/bot/level`**
+
+### Linux
 
 ```bash
-curl https://mazehkhor.com/bot/api/bot/level
+curl https://mazehkhor.com/bot/api/bot/level \
+     -H "X-API-Key: YOUR_KEY"
 ```
 
-### **Response**
+### PowerShell
 
-```json
-{
-  "ok": true,
-  "level": 20
-}
+```powershell
+curl "https://mazehkhor.com/bot/api/bot/level" `
+     -Headers @{ "X-API-Key" = "YOUR_KEY" }
 ```
 
 ---
 
-# **5. POST `/api/bot/level`**
+## **POST `/bot/api/bot/level`**
 
-Sets the Stockfish skill level (does **not** restart the bot).
-
-### **curl Example**
+### Linux
 
 ```bash
-curl -X POST https://mazehkhor.com/bot/api/bot/level \
+curl -X POST "https://mazehkhor.com/bot/api/bot/level" \
+     -H "X-API-Key: YOUR_KEY" \
      -H "Content-Type: application/json" \
      -d '{"level": 5}'
 ```
 
-### **Response**
+### PowerShell
+
+```powershell
+curl "https://mazehkhor.com/bot/api/bot/level" `
+     -Method POST `
+     -Headers @{ "X-API-Key" = "YOUR_KEY"; "Content-Type" = "application/json" } `
+     -Body '{"level": 5}'
+```
+
+---
+
+# ----------------------------------------------
+
+# **5. RESTART BOT (NEW)**
+
+# ----------------------------------------------
+
+## **POST `/bot/api/bot/restart`**
+
+### Linux
+
+```bash
+curl -X POST "https://mazehkhor.com/bot/api/bot/restart" \
+     -H "X-API-Key: YOUR_KEY"
+```
+
+### PowerShell
+
+```powershell
+curl "https://mazehkhor.com/bot/api/bot/restart" `
+     -Method POST `
+     -Headers @{ "X-API-Key" = "YOUR_KEY" }
+```
+
+---
+
+# ----------------------------------------------
+
+# **6. GET RECENT LOGS (NEW)**
+
+# ----------------------------------------------
+
+## **GET `/bot/api/logs/recent`**
+
+Returns last **200 lines** from app.log.
+
+### Linux
+
+```bash
+curl "https://mazehkhor.com/bot/api/logs/recent" \
+     -H "X-API-Key: YOUR_KEY"
+```
+
+### PowerShell
+
+```powershell
+curl "https://mazehkhor.com/bot/api/logs/recent" `
+     -Headers @{ "X-API-Key" = "YOUR_KEY" }
+```
+
+---
+
+# ----------------------------------------------
+
+# **7. GET CURRENT GAME (NEW)**
+
+# ----------------------------------------------
+
+## **GET `/bot/api/bot/current_game`**
+
+Returns current game status & last move from `bot_state.json`.
+
+### Linux
+
+```bash
+curl "https://mazehkhor.com/bot/api/bot/current_game" \
+     -H "X-API-Key: YOUR_KEY"
+```
+
+### PowerShell
+
+```powershell
+curl "https://mazehkhor.com/bot/api/bot/current_game" `
+     -Headers @{ "X-API-Key" = "YOUR_KEY" }
+```
+
+### Example response
 
 ```json
 {
   "ok": true,
-  "level": 5,
-  "running": true
+  "running": true,
+  "in_game": true,
+  "state": {
+    "status": "playing",
+    "game_id": "abc123",
+    "color": "black",
+    "last_move": "e7e5",
+    "opponent": "Opponent123"
+  }
 }
 ```
 
 ---
 
-# **Error Response Format**
+# ----------------------------------------------
 
-All errors follow this structure:
+# **8. BOT STATISTICS (NEW)**
 
-```json
-{
-  "ok": false,
-  "error": "Description of error"
-}
+# ----------------------------------------------
+
+## **GET `/bot/api/bot/stats`**
+
+Returns:
+
+* total games
+* ratings (bullet / blitz / rapid)
+* recent performance (wins, losses, draws)
+* details of last N games
+
+### Linux
+
+```bash
+curl "https://mazehkhor.com/bot/api/bot/stats" \
+     -H "X-API-Key: YOUR_KEY"
 ```
 
-Examples:
+### PowerShell
 
-### Invalid level
-
-```json
-{
-  "ok": false,
-  "error": "Invalid 'level'. Must be integer 0–20."
-}
-```
-
-### Missing field
-
-```json
-{
-  "ok": false,
-  "error": "Missing 'level' in JSON body."
-}
+```powershell
+curl "https://mazehkhor.com/bot/api/bot/stats" `
+     -Headers @{ "X-API-Key" = "YOUR_KEY" }
 ```
 
 ---
 
-# **Quick Testing Cheat Sheet**
+# **Error Format**
 
-You can paste these directly into your terminal:
+All errors follow this format:
 
-### Check status
-
-```bash
-curl https://mazehkhor.com/bot/api/bot/status
-```
-
-### Start bot
-
-```bash
-curl -X POST https://mazehkhor.com/bot/api/bot/start
-```
-
-### Start with level
-
-```bash
-curl -X POST https://mazehkhor.com/bot/api/bot/start \
-     -H "Content-Type: application/json" \
-     -d '{"level": 12}'
-```
-
-### Stop bot
-
-```bash
-curl -X POST https://mazehkhor.com/bot/api/bot/stop
-```
-
-### Get level
-
-```bash
-curl https://mazehkhor.com/bot/api/bot/level
-```
-
-### Set level
-
-```bash
-curl -X POST https://mazehkhor.com/bot/api/bot/level \
-     -H "Content-Type: application/json" \
-     -d '{"level": 3}'
+```json
+{
+  "ok": false,
+  "error": "Error message"
+}
 ```
